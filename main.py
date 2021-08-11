@@ -69,7 +69,7 @@ def clear_filters():
 
 
 st.set_page_config(page_title="GLOBE MHM and LC Data Portal")
-filtering, data_view = st.beta_columns(2)
+filtering, data_view = st.columns(2)
 with filtering:
     st.header("Basic Dataset Information")
 
