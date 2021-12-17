@@ -12,10 +12,46 @@ import base64
 
 
 def numeric_filter(operation, value, column, df):
+    """Filters a data column numerically.
+
+    Parameters
+    ----------
+    operation: str
+        Operator used to filter data (e.g. ">", "<", "==", ">=", "<=", "!=")
+    value: float
+        Operand / number
+    column: str 
+        String for column name
+    df: pd.DataFrame
+        DataFrame
+
+    Returns
+    -------
+    ndarray
+        1D Boolean array that indicates whether each entry of the DataFrame matches the given numeric filter.
+    """
     return eval(f"df['{column}'] {operation} {value}")
 
 
 def value_filter(values, exclude, column, df):
+    """Filters a given data column by the presence of given values.
+
+    Parameters
+    ----------
+    values: list 
+        List of desired or unwanted cell values in a given column
+    exclude: bool
+        boolean indicating whether to include or exclude values
+    column: str 
+        String for column name
+    df: pd.DataFrame
+        DataFrame
+
+    Returns
+    -------
+    ndarray
+        1D Boolean array mask indicating which entries match the given criteria
+    """
     if exclude:
         data_filter = np.vectorize(lambda entry: entry not in selected_values)
     else:
@@ -25,8 +61,17 @@ def value_filter(values, exclude, column, df):
 
 def get_table_download_link(df, name):
     """Generates a link allowing the data in a given panda dataframe to be downloaded
-    in:  dataframe
-    out: href string
+    Parameters
+    ----------
+    df: pd.DataFrame
+        DataFrame to be downloaded
+    name: str
+        The filename for the CSV (doesn't include .csv)
+
+    Returns
+    -------
+    str
+        href string that will download the data to the user as a CSV
     """
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(
@@ -68,16 +113,18 @@ def clear_filters():
     st.session_state["filtered_data"] = None
 
 
-st.set_page_config(page_title="GLOBE MHM and LC Data Portal")
+st.set_page_config(page_title="GLOBE Observer MHM and LC Data Portal")
 filtering, data_view = st.columns(2)
 with filtering:
     st.header("Basic Dataset Information")
 
+    # Users select the GLOBE Observer Protocol
     st.subheader("Protocol")
     st.session_state["protocol"] = st.selectbox(
         "Which GLOBE protocol would you like to use?", protocols.keys()
     )
 
+    # Users select their desired data range
     st.subheader("Date Range")
     dates = st.date_input(
         "range, no dates",
@@ -91,17 +138,14 @@ with filtering:
         download_args["start_date"] = start_date
         download_args["end_date"] = end_date
 
+    # Retrieves cleaned GLOBE Data matching your given parameters
     if st.button("Get raw data"):
         st.session_state["data"] = get_api_data(**download_args)
         clear_filters()
 
+    # Allows users to further filter API-returned data
     if st.session_state["data"] is not None:
         st.header("Filter Selector")
-
-        # for key in st.session_state["filters"].keys():
-        #         if key not in st.session_state["selected_filters"]:
-        #                 del st.session_state["filters"][key]
-        #                 st.write("BAD")
         st.session_state["selected_filters"] = st.multiselect(
             "Selected Filters",
             st.session_state["filters"].keys(),
@@ -110,7 +154,7 @@ with filtering:
             else st.session_state["selected_filters"],
         )
         st.write(st.session_state["selected_filters"])
-        #
+
         selected_col = st.selectbox(
             "Select the column", st.session_state["data"].columns
         )
@@ -139,6 +183,7 @@ with filtering:
             st.session_state["selected_filters"].append(name)
             st.experimental_rerun()
 
+        # All filters return a boolean mask used to filter the finalized dataset
         mask = np.full(len(st.session_state["data"]), True)
         for key, filter_func in st.session_state["filters"].items():
             if key in st.session_state["selected_filters"]:
