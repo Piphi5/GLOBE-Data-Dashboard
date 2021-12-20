@@ -19,7 +19,7 @@ def numeric_filter(operation, value, column, df):
         Operator used to filter data (e.g. ">", "<", "==", ">=", "<=", "!=")
     value: float
         Operand / number
-    column: str 
+    column: str
         String for column name
     df: pd.DataFrame
         DataFrame
@@ -37,11 +37,11 @@ def value_filter(values, exclude, column, df):
 
     Parameters
     ----------
-    values: list 
+    values: list
         List of desired or unwanted cell values in a given column
     exclude: bool
         boolean indicating whether to include or exclude values
-    column: str 
+    column: str
         String for column name
     df: pd.DataFrame
         DataFrame
