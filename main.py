@@ -1,6 +1,5 @@
 import streamlit as st
 from go_utils import get_api_data
-from go_utils.geoenrich import get_country_api_data
 from go_utils import mhm, lc
 import datetime
 from pandas.api.types import is_numeric_dtype
