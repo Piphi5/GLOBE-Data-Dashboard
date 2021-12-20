@@ -1,13 +1,14 @@
+import base64
+import datetime
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import streamlit as st
+
+from functools import partial
 from go_utils import get_api_data
 from go_utils import mhm, lc
-import datetime
 from pandas.api.types import is_numeric_dtype
-import pandas as pd
-import numpy as np
-from functools import partial
-import matplotlib.pyplot as plt
-import base64
 
 
 def numeric_filter(operation, value, column, df):
