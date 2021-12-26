@@ -159,11 +159,15 @@ with filtering:
 
 
 with data_view:
-    st.write(st.session_state["filtered_data"])
     if (
         st.session_state["protocol"] in plotting
         and st.session_state["filtered_data"] is not None
     ):
+        st.write(
+            st.session_state["filtered_data"][
+                : min(10000, len(st.session_state["filtered_data"]))
+            ]
+        )
         plotting[st.session_state["protocol"]](st.session_state["filtered_data"])
         for num in plt.get_fignums():
             fig = plt.figure(num)
