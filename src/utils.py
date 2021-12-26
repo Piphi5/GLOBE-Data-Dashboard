@@ -1,5 +1,12 @@
+import ast
 import base64
+import datetime
+import re
+from functools import partial
+
 import numpy as np
+
+from constants import data_keys, date_fmt
 
 
 def numeric_filter(operation, value, column, df):
@@ -22,6 +29,12 @@ def numeric_filter(operation, value, column, df):
         1D Boolean array that indicates whether each entry of the DataFrame matches the given numeric filter.
     """
     return eval(f"df['{column}'] {operation} {value}")
+
+
+def get_numeric_filter_args(filter_name):
+
+    column, operation, value = filter_name.split(" ")
+    return operation, value, column
 
 
 def value_filter(values, exclude, column, df):
@@ -50,6 +63,13 @@ def value_filter(values, exclude, column, df):
     return data_filter(df[column].to_numpy())
 
 
+def get_value_filter_args(filter_name):
+    values = ast.literal_eval(re.search(r"\[.*\]", filter_name).group(0))
+    exclude = "not" in filter_name
+    column = filter_name.split(" ")[0]
+    return values, exclude, column
+
+
 def get_table_download_link(df, name):
     """Generates a link allowing the data in a given panda dataframe to be downloaded
     Parameters
@@ -70,3 +90,34 @@ def get_table_download_link(df, name):
     ).decode()  # some strings <-> bytes conversions necessary here
     href = f'<a href="data:file/csv;base64,{b64}" download="{name}.csv">Download csv file</a>'
     return href
+
+
+def get_metadata_download_link(json, name):
+    json_str = str(json)
+    b64 = base64.b64encode(
+        json_str.encode()
+    ).decode()  # some strings <-> bytes conversions necessary here
+    href = f'<a href="data:file/json;base64,{b64}" download="{name}.json">Download json file</a>'
+    return href
+
+
+def update_data_args(metadata, download_args, selected_filter_list, filter_func_dict):
+    filter_types = {
+        "numeric": (get_numeric_filter_args, numeric_filter),
+        "value": (get_value_filter_args, value_filter),
+    }
+    download_args["protocol"] = metadata["protocol"]
+    download_args.update(
+        {
+            key: datetime.datetime.strptime(metadata[key], date_fmt)
+            for key in data_keys
+            if "date" in key
+        }
+    )
+    for filter_name, filter_type in zip(
+        metadata["selected_filters"], metadata["selected_filter_types"]
+    ):
+        name_parser, func = filter_types[filter_type]
+        filter_function = partial(func, *name_parser(filter_name))
+        filter_func_dict[filter_name] = filter_function
+        selected_filter_list.append(filter_name)

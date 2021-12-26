@@ -1,12 +1,20 @@
-import pytest
-import pandas as pd
+import json
 import os
 import sys
 
+import pandas as pd
+import pytest
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import value_filter, numeric_filter, get_table_download_link  # noqa: E402
-
+from utils import (  # noqa: E402
+    get_metadata_download_link,
+    get_numeric_filter_args,
+    get_table_download_link,
+    get_value_filter_args,
+    numeric_filter,
+    value_filter,
+)
 
 numerical_test_values = [
     (">", 5, "mhm_LarvaeCount", [5, 0, -9999, 10], [False, False, False, True]),
@@ -51,6 +59,32 @@ value_test_values = [
     ),
 ]
 
+numerical_test_string_values = [
+    ("mhm_LarvaeCount > 5", ">", "5", "mhm_LarvaeCount"),
+    ("mhm_LarvaeCount <= -8", "<=", "-8", "mhm_LarvaeCount"),
+    ("mhm_Latitude < 45", "<", "45", "mhm_Latitude"),
+    ("mhm_Latitude == 36.23", "==", "36.23", "mhm_Latitude"),
+    ("mhm_Longitude >= 22", ">=", "22", "mhm_Longitude"),
+    ("mhm_Longitude != 0", "!=", "0", "mhm_Longitude"),
+]
+
+value_test_string_values = [
+    ("mhm_HasEggs in [True]", [True], False, "mhm_HasEggs"),
+    (
+        "lc_ClassificationBitBinary in ['001001', '001111', '011001']",
+        ["001001", "001111", "011001"],
+        False,
+        "lc_ClassificationBitBinary",
+    ),
+    (
+        "lc_ClassificationBitBinary not in ['001001', '001111', '011001']",
+        ["001001", "001111", "011001"],
+        True,
+        "lc_ClassificationBitBinary",
+    ),
+    ("mhm_HasEggs not in [True]", [True], True, "mhm_HasEggs"),
+]
+
 
 def list_to_df(column, data):
     return pd.DataFrame.from_dict({column: data})
@@ -78,7 +112,30 @@ def test_value_filter(values, exclude, column, data, desired):
     )
 
 
+@pytest.mark.parametrize(
+    "filter_name, operation, value, column", numerical_test_string_values
+)
+def test_numeric_filter_parse(filter_name, operation, value, column):
+    test_operation, test_value, test_column = get_numeric_filter_args(filter_name)
+    assert test_operation == operation
+    assert test_value == value
+    assert test_column == column
+
+
+@pytest.mark.parametrize(
+    "filter_name, values, exclude, column", value_test_string_values
+)
+def test_value_filter_parse(filter_name, values, exclude, column):
+    test_values, test_exclude, test_column = get_value_filter_args(filter_name)
+    assert all([test_value == value for test_value, value in zip(test_values, values)])
+    assert test_exclude == test_exclude
+    assert test_column == column
+
+
 # Make sure test runs
 def test_link_gen():
     df = pd.DataFrame.from_dict({"test": [1, 2, 3]})
     get_table_download_link(df, "test.csv")
+
+    json_test = {"test": "test", "test1": [1, 2, 3]}
+    get_metadata_download_link(json.dumps(json_test), "test.json")
