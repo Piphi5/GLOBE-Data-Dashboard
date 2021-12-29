@@ -5,14 +5,16 @@ from io import StringIO
 from random import randint
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import streamlit as st
 from go_utils import get_api_data, lc, mhm
 from pandas.api.types import is_numeric_dtype
 
-from constants import data_keys, date_fmt, protocols
-from utils import (
+from constants import protocols
+
+from utils import (  # isort: skip
+    apply_filters,
+    generate_json_object,
     get_metadata_download_link,
     get_table_download_link,
     numeric_filter,
@@ -150,12 +152,11 @@ with filtering:
             st.session_state["selected_filter_types"].append(filter_type)
             st.experimental_rerun()
 
-        # All filters return a boolean mask used to filter the finalized dataset
-        mask = np.full(len(st.session_state["data"]), True)
-        for key, filter_func in st.session_state["filters"].items():
-            if key in st.session_state["selected_filters"]:
-                mask = mask & filter_func(st.session_state["data"])
-        st.session_state["filtered_data"] = st.session_state["data"][mask]
+        st.session_state["filtered_data"] = apply_filters(
+            st.session_state["data"],
+            st.session_state["filters"],
+            st.session_state["selected_filters"],
+        )
 
 
 with data_view:
@@ -207,14 +208,7 @@ with st.sidebar:
     st.header("Download Metadata JSON")
     if st.button("Make JSON Link"):
         download_data = {**st.session_state["download_args"], **st.session_state}
-        json_obj = json.dumps(
-            {
-                key: download_data[key]
-                if type(download_data[key]) is not datetime.date
-                else download_data[key].strftime(date_fmt)
-                for key in data_keys
-            }
-        )
+        json_obj = generate_json_object(download_data)
         if st.session_state["filtered_data"] is not None:
             file_name = f"{st.session_state['protocol']}-{len(st.session_state['filtered_data'])}"
             st.markdown(

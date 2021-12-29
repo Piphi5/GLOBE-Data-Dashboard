@@ -1,6 +1,7 @@
 import ast
 import base64
 import datetime
+import json
 import re
 from functools import partial
 
@@ -11,7 +12,6 @@ from constants import data_keys, date_fmt
 
 def numeric_filter(operation, value, column, df):
     """Filters a data column numerically.
-
     Parameters
     ----------
     operation: str
@@ -22,7 +22,6 @@ def numeric_filter(operation, value, column, df):
         String for column name
     df: pd.DataFrame
         DataFrame
-
     Returns
     -------
     ndarray
@@ -39,7 +38,6 @@ def get_numeric_filter_args(filter_name):
 
 def value_filter(values, exclude, column, df):
     """Filters a given data column by the presence of given values.
-
     Parameters
     ----------
     values: list
@@ -50,7 +48,6 @@ def value_filter(values, exclude, column, df):
         String for column name
     df: pd.DataFrame
         DataFrame
-
     Returns
     -------
     ndarray
@@ -78,7 +75,6 @@ def get_table_download_link(df, name):
         DataFrame to be downloaded
     name: str
         The filename for the CSV (doesn't include .csv)
-
     Returns
     -------
     str
@@ -90,6 +86,15 @@ def get_table_download_link(df, name):
     ).decode()  # some strings <-> bytes conversions necessary here
     href = f'<a href="data:file/csv;base64,{b64}" download="{name}.csv">Download csv file</a>'
     return href
+
+
+def apply_filters(data, filter_dict, selected_filters_list):
+    # All filters return a boolean mask used to filter the finalized dataset
+    mask = np.full(len(data), True)
+    for key, filter_func in filter_dict.items():
+        if key in selected_filters_list:
+            mask = mask & filter_func(data)
+    return data[mask]
 
 
 def get_metadata_download_link(json, name):
@@ -121,3 +126,14 @@ def update_data_args(metadata, download_args, selected_filter_list, filter_func_
         filter_function = partial(func, *name_parser(filter_name))
         filter_func_dict[filter_name] = filter_function
         selected_filter_list.append(filter_name)
+
+
+def generate_json_object(download_data):
+    return json.dumps(
+        {
+            key: download_data[key]
+            if type(download_data[key]) is not datetime.date
+            else download_data[key].strftime(date_fmt)
+            for key in data_keys
+        }
+    )
