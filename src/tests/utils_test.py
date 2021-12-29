@@ -7,7 +7,7 @@ import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import (  # noqa: E402
+from utils import (  # noqa: E402 isort: skip
     get_metadata_download_link,
     get_numeric_filter_args,
     get_table_download_link,
