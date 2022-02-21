@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import sys
@@ -7,7 +8,8 @@ import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import (  # noqa: E402 isort: skip
+from utils import (  # noqa: E402
+    datetime_to_str,
     get_metadata_download_link,
     get_numeric_filter_args,
     get_table_download_link,
@@ -85,6 +87,12 @@ value_test_string_values = [
     ("mhm_HasEggs not in [True]", [True], True, "mhm_HasEggs"),
 ]
 
+datetime_test_string = [
+    (datetime.datetime(2017, 5, 31), "2017-05-31"),
+    (datetime.datetime(2020, 11, 3), "2020-11-03"),
+    (datetime.datetime(2021, 8, 12), "2021-08-12"),
+]
+
 
 def list_to_df(column, data):
     return pd.DataFrame.from_dict({column: data})
@@ -130,6 +138,12 @@ def test_value_filter_parse(filter_name, values, exclude, column):
     assert all([test_value == value for test_value, value in zip(test_values, values)])
     assert test_exclude == test_exclude
     assert test_column == column
+
+
+@pytest.mark.parametrize("datetime, datetime_str", datetime_test_string)
+def test_datetime_conversion(datetime, datetime_str):
+    test_str = datetime_to_str(datetime)
+    assert test_str == datetime_str
 
 
 # Make sure test runs

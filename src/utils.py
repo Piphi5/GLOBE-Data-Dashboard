@@ -6,8 +6,10 @@ import re
 from functools import partial
 
 import numpy as np
+from go_utils import get_api_data
+from go_utils.geoenrich import get_country_api_data
 
-from constants import data_keys, date_fmt
+from constants import data_keys, date_fmt, protocols
 
 
 def numeric_filter(operation, value, column, df):
@@ -111,7 +113,11 @@ def update_data_args(metadata, download_args, selected_filter_list, filter_func_
         "numeric": (get_numeric_filter_args, numeric_filter),
         "value": (get_value_filter_args, value_filter),
     }
-    download_args["protocol"] = metadata["protocol"]
+
+    download_args["protocol"] = protocols[metadata["protocol"]]
+    geolocational_args = ["countries", "regions"]
+    temp_download_args = {col: metadata[col] for col in geolocational_args}
+    download_args.update(temp_download_args)
     download_args.update(
         {
             key: datetime.datetime.strptime(metadata[key], date_fmt)
@@ -137,3 +143,23 @@ def generate_json_object(download_data):
             for key in data_keys
         }
     )
+
+
+def datetime_to_str(date):
+    return date.strftime("%Y-%m-%d")
+
+
+def download_data(download_args):
+    if type(download_args["start_date"]) is not str:
+        download_args["start_date"] = datetime_to_str(download_args["start_date"])
+    if type(download_args["end_date"]) is not str:
+        download_args["end_date"] = datetime_to_str(download_args["end_date"])
+    if download_args["countries"] or download_args["regions"]:
+        return get_country_api_data(**download_args)
+    else:
+        no_country_args = {
+            key: value
+            for key, value in download_args.items()
+            if key != "countries" and key != "regions"
+        }
+        return get_api_data(**no_country_args)

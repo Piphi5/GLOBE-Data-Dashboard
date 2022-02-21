@@ -10,6 +10,8 @@ data_keys = [
     "protocol",
     "start_date",
     "end_date",
+    "countries",
+    "regions",
     "selected_filters",
     "selected_filter_types",
 ]
