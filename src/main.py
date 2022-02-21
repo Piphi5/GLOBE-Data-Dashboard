@@ -4,16 +4,17 @@ from functools import partial
 from io import StringIO
 from random import randint
 
+import leafmap.foliumap as leafmap
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-from go_utils import get_api_data, lc, mhm
+from go_utils import constants, lc, mhm
 from pandas.api.types import is_numeric_dtype
 
 from constants import protocols
-
-from utils import (  # isort: skip
+from utils import (
     apply_filters,
+    download_data,
     generate_json_object,
     get_metadata_download_link,
     get_table_download_link,
@@ -21,6 +22,10 @@ from utils import (  # isort: skip
     update_data_args,
     value_filter,
 )
+
+country_list = [
+    country for countries in constants.region_dict.values() for country in countries
+]
 
 plotting = {
     "Mosquito Habitat Mapper": mhm.diagnostic_plots,
@@ -59,13 +64,13 @@ def clear_filters():
     st.session_state["filtered_data"] = None
 
 
-st.set_page_config(page_title="GLOBE Observer MHM and LC Data Portal")
-filtering, data_view = st.columns(2)
+st.set_page_config(page_title="GLOBE Observer MHM and LC Data Portal", layout="wide")
+filtering, data_view, plots = st.columns(3)
 with filtering:
     st.header("Basic Dataset Information")
 
     if st.session_state["file_loaded"]:
-        index = list(protocols.keys()).index(
+        index = list(protocols.values()).index(
             st.session_state["download_args"]["protocol"]
         )
 
@@ -100,13 +105,29 @@ with filtering:
         st.session_state["download_args"]["start_date"] = start_date
         st.session_state["download_args"]["end_date"] = end_date
 
+    if st.session_state["file_loaded"]:
+        default_countries = st.session_state["download_args"]["countries"]
+        default_regions = st.session_state["download_args"]["regions"]
+    else:
+        default_countries = []
+        default_regions = []
+
+    st.subheader("Countries")
+    st.session_state["download_args"]["countries"] = st.multiselect(
+        "Select countries", country_list, default=default_countries
+    )
+    st.subheader("Regions")
+    st.session_state["download_args"]["regions"] = st.multiselect(
+        "Select regions", constants.region_dict.keys(), default=default_regions
+    )
+
     # Retrieves cleaned GLOBE Data matching your given parameters
     if st.button("Get raw data"):
-        st.session_state["data"] = get_api_data(**st.session_state["download_args"])
+        st.session_state["data"] = download_data(st.session_state["download_args"])
         clear_filters()
 
     if st.session_state["file_loaded"]:
-        st.session_state["data"] = get_api_data(**st.session_state["download_args"])
+        st.session_state["data"] = download_data(st.session_state["download_args"])
         st.session_state["file_loaded"] = False
 
     # Allows users to further filter API-returned data
@@ -164,16 +185,35 @@ with data_view:
         st.session_state["protocol"] in plotting
         and st.session_state["filtered_data"] is not None
     ):
+        prefix = constants.abbreviation_dict[
+            st.session_state["download_args"]["protocol"]
+        ]
+        lon_col = f"{prefix}_Longitude"
+        lat_col = f"{prefix}_Latitude"
+        m = leafmap.Map()
+        m.add_points_from_xy(
+            st.session_state["filtered_data"][[lat_col, lon_col]],
+            x=lon_col,
+            y=lat_col,
+            popups=[],
+            layer_name="Points",
+        )
+        m.to_streamlit()
         st.write(
             st.session_state["filtered_data"][
                 : min(10000, len(st.session_state["filtered_data"]))
             ]
         )
+
+with plots:
+    if (
+        st.session_state["protocol"] in plotting
+        and st.session_state["filtered_data"] is not None
+    ):
         plotting[st.session_state["protocol"]](st.session_state["filtered_data"])
         for num in plt.get_fignums():
             fig = plt.figure(num)
             st.pyplot(fig)
-
 
 with st.sidebar:
     st.header("Upload JSON")
