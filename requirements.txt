@@ -1,3 +1,4 @@
-streamlit==0.86.0
-go-utils==1.1.1
-git+https://github.com/giswqs/geemap
+streamlit
+go-utils
+streamlit-folium
+leafmap
