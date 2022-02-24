@@ -1,4 +1,4 @@
 streamlit
 go-utils
 streamlit-folium
-leafmap
+leafmap<=0.7.7
