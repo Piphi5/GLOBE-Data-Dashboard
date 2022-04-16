@@ -57,6 +57,9 @@ if "protocol" not in st.session_state:
 if "download_args" not in st.session_state:
     st.session_state["download_args"] = dict()
 
+if "display_map" not in st.session_state:
+    st.session_state["display_map"] = False
+
 
 def clear_filters():
     st.session_state["filters"] = dict()
@@ -179,26 +182,34 @@ with filtering:
             st.session_state["selected_filters"],
         )
 
+has_data = (
+    st.session_state["protocol"] in plotting
+    and st.session_state["filtered_data"] is not None
+)
 
 with data_view:
-    if (
-        st.session_state["protocol"] in plotting
-        and st.session_state["filtered_data"] is not None
-    ):
-        prefix = constants.abbreviation_dict[
-            st.session_state["download_args"]["protocol"]
-        ]
-        lon_col = f"{prefix}_Longitude"
-        lat_col = f"{prefix}_Latitude"
-        m = leafmap.Map()
-        m.add_points_from_xy(
-            st.session_state["filtered_data"][[lat_col, lon_col]],
-            x=lon_col,
-            y=lat_col,
-            popups=[],
-            layer_name="Points",
-        )
-        m.to_streamlit()
+    st.session_state["display_map"] = st.checkbox(
+        "Display Map", value=st.session_state["display_map"]
+    )
+    if has_data:
+        # Display Map if its checked
+        if st.session_state["display_map"]:
+            prefix = constants.abbreviation_dict[
+                st.session_state["download_args"]["protocol"]
+            ]
+            lon_col = f"{prefix}_Longitude"
+            lat_col = f"{prefix}_Latitude"
+            m = leafmap.Map()
+            m.add_points_from_xy(
+                st.session_state["filtered_data"][[lat_col, lon_col]],
+                x=lon_col,
+                y=lat_col,
+                popups=[],
+                layer_name="Points",
+            )
+            m.to_streamlit()
+
+        # Display data table (first 10000 entries)
         st.write(
             st.session_state["filtered_data"][
                 : min(10000, len(st.session_state["filtered_data"]))
@@ -206,10 +217,7 @@ with data_view:
         )
 
 with plots:
-    if (
-        st.session_state["protocol"] in plotting
-        and st.session_state["filtered_data"] is not None
-    ):
+    if has_data:
         plotting[st.session_state["protocol"]](st.session_state["filtered_data"])
         for num in plt.get_fignums():
             fig = plt.figure(num)
