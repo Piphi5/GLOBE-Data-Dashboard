@@ -16,8 +16,7 @@ from utils import (
     apply_filters,
     download_data,
     generate_json_object,
-    get_metadata_download_link,
-    get_table_download_link,
+    convert_df,
     numeric_filter,
     update_data_args,
     value_filter,
@@ -245,21 +244,19 @@ with st.sidebar:
             st.session_state.pop("uploader_key")
         st.experimental_rerun()
 
-    st.header("Get the Data")
-    if st.button("Make CSV Link"):
-        if st.session_state["filtered_data"] is not None:
-            file_name = f"{st.session_state['protocol']}-{len(st.session_state['filtered_data'])}"
-            st.markdown(
-                get_table_download_link(st.session_state["filtered_data"], file_name),
-                unsafe_allow_html=True,
-            )
-    st.header("Download Metadata JSON")
-    if st.button("Make JSON Link"):
+    if type(st.session_state["filtered_data"]) is pd.DataFrame:
+        st.header("Get the Data")
+        st.download_button(
+            "Download CSV",
+            convert_df(st.session_state["filtered_data"]),
+            file_name=f"{st.session_state['protocol']}-{len(st.session_state['filtered_data'])}.csv",
+        )
+
+        st.header("Download Metadata JSON")
         download_data = {**st.session_state["download_args"], **st.session_state}
-        json_obj = generate_json_object(download_data)
-        if st.session_state["filtered_data"] is not None:
-            file_name = f"{st.session_state['protocol']}-{len(st.session_state['filtered_data'])}"
-            st.markdown(
-                get_metadata_download_link(json_obj, file_name),
-                unsafe_allow_html=True,
-            )
+        json_obj = str(generate_json_object(download_data)).encode("utf-8")
+        st.download_button(
+            "Download Metadata JSON",
+            json_obj,
+            file_name=f"{st.session_state['protocol']}-{len(st.session_state['filtered_data'])}.json",
+        )

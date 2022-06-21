@@ -1,5 +1,4 @@
 import datetime
-import json
 import os
 import sys
 
@@ -10,9 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import (  # noqa: E402
     datetime_to_str,
-    get_metadata_download_link,
     get_numeric_filter_args,
-    get_table_download_link,
     get_value_filter_args,
     numeric_filter,
     value_filter,
@@ -144,12 +141,3 @@ def test_value_filter_parse(filter_name, values, exclude, column):
 def test_datetime_conversion(datetime, datetime_str):
     test_str = datetime_to_str(datetime)
     assert test_str == datetime_str
-
-
-# Make sure test runs
-def test_link_gen():
-    df = pd.DataFrame.from_dict({"test": [1, 2, 3]})
-    get_table_download_link(df, "test.csv")
-
-    json_test = {"test": "test", "test1": [1, 2, 3]}
-    get_metadata_download_link(json.dumps(json_test), "test.json")

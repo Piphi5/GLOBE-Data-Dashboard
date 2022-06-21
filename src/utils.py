@@ -1,8 +1,8 @@
 import ast
-import base64
 import datetime
 import json
 import re
+import streamlit as st
 from functools import partial
 
 import numpy as np
@@ -69,25 +69,10 @@ def get_value_filter_args(filter_name):
     return values, exclude, column
 
 
-def get_table_download_link(df, name):
-    """Generates a link allowing the data in a given panda dataframe to be downloaded
-    Parameters
-    ----------
-    df: pd.DataFrame
-        DataFrame to be downloaded
-    name: str
-        The filename for the CSV (doesn't include .csv)
-    Returns
-    -------
-    str
-        href string that will download the data to the user as a CSV
-    """
-    csv = df.to_csv(index=False)
-    b64 = base64.b64encode(
-        csv.encode()
-    ).decode()  # some strings <-> bytes conversions necessary here
-    href = f'<a href="data:file/csv;base64,{b64}" download="{name}.csv">Download csv file</a>'
-    return href
+@st.cache
+def convert_df(df):
+    # IMPORTANT: Cache the conversion to prevent computation on every rerun
+    return df.to_csv().encode("utf-8")
 
 
 def apply_filters(data, filter_dict, selected_filters_list):
@@ -97,15 +82,6 @@ def apply_filters(data, filter_dict, selected_filters_list):
         if key in selected_filters_list:
             mask = mask & filter_func(data)
     return data[mask]
-
-
-def get_metadata_download_link(json, name):
-    json_str = str(json)
-    b64 = base64.b64encode(
-        json_str.encode()
-    ).decode()  # some strings <-> bytes conversions necessary here
-    href = f'<a href="data:file/json;base64,{b64}" download="{name}.json">Download json file</a>'
-    return href
 
 
 def update_data_args(metadata, download_args, selected_filter_list, filter_func_dict):
