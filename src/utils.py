@@ -2,12 +2,14 @@ import ast
 import datetime
 import json
 import re
-import streamlit as st
 from functools import partial
 
 import numpy as np
+import streamlit as st
 from go_utils import get_api_data
+from go_utils.filtering import filter_by_globe_team
 from go_utils.geoenrich import get_country_api_data
+from pandas.api.types import is_hashable
 
 from constants import data_keys, date_fmt, protocols
 
@@ -55,11 +57,17 @@ def value_filter(values, exclude, column, df):
     ndarray
         1D Boolean array mask indicating which entries match the given criteria
     """
-    if exclude:
-        data_filter = np.vectorize(lambda entry: entry not in values)
+    if np.all([np.vectorize(is_hashable)(df[column].to_numpy())]):
+        if exclude:
+            data_filter = np.vectorize(lambda entry: entry not in values)
+        else:
+            data_filter = np.vectorize(lambda entry: entry in values)
+        return data_filter(df[column].to_numpy())
     else:
-        data_filter = np.vectorize(lambda entry: entry in values)
-    return data_filter(df[column].to_numpy())
+        filtered_teams = filter_by_globe_team(df, column, values, exclude)
+        mask = df.isin(filtered_teams)
+        mask = np.any(mask, axis=1)
+        return mask
 
 
 def get_value_filter_args(filter_name):
@@ -80,7 +88,7 @@ def apply_filters(data, filter_dict, selected_filters_list):
     mask = np.full(len(data), True)
     for key, filter_func in filter_dict.items():
         if key in selected_filters_list:
-            mask = mask & filter_func(data)
+            mask = (mask) & filter_func(data)
     return data[mask]
 
 

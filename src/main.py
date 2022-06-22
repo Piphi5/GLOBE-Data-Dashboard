@@ -6,17 +6,18 @@ from random import randint
 
 import leafmap.foliumap as leafmap
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import streamlit as st
 from go_utils import constants, lc, mhm
-from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_hashable, is_numeric_dtype
 
 from constants import protocols
 from utils import (
     apply_filters,
+    convert_df,
     download_data,
     generate_json_object,
-    convert_df,
     numeric_filter,
     update_data_args,
     value_filter,
@@ -158,9 +159,25 @@ with filtering:
             filter_type = "numeric"
             name = f"{selected_col} {selected_op} {value}"
         else:
-            selected_values = st.multiselect(
-                "Select values", pd.unique(st.session_state["data"][selected_col])
-            )
+            if np.all(
+                [
+                    np.vectorize(is_hashable)(
+                        st.session_state["data"][selected_col].to_numpy()
+                    )
+                ]
+            ):
+                selection_values = pd.unique(st.session_state["data"][selected_col])
+            else:
+                teams = []
+                for _, row in st.session_state["data"].iterrows():
+                    if not is_hashable(row[selected_col]):
+                        for team in row[selected_col]:
+                            teams.append(team)
+                teams = set(teams)
+                selection_values = list(teams)
+
+            selected_values = st.multiselect("Select values", selection_values)
+
             is_remove = st.checkbox("Remove Selected Values")
             operation = "not in" if is_remove else "in"
             name = f"{selected_col} {operation} {selected_values}"
@@ -168,7 +185,6 @@ with filtering:
                 value_filter, selected_values, is_remove, selected_col
             )
             filter_type = "value"
-
         if st.button("Add filter"):
             st.session_state["filters"][name] = filter_function
             st.session_state["selected_filters"].append(name)
