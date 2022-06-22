@@ -119,14 +119,19 @@ def update_data_args(metadata, download_args, selected_filter_list, filter_func_
 
 
 def generate_json_object(download_data):
-    return json.dumps(
-        {
-            key: download_data[key]
-            if type(download_data[key]) is not datetime.date
-            else download_data[key].strftime(date_fmt)
-            for key in data_keys
-        }
-    )
+    data_dict = {
+        key: download_data[key]
+        if type(download_data[key]) is not datetime.date
+        else download_data[key].strftime(date_fmt)
+        for key in data_keys[:-1]
+    }
+
+    filter_types = [
+        "value" if "in" in filter_name else "numeric"
+        for filter_name in data_dict["selected_filters"]
+    ]
+    data_dict["selected_filter_types"] = filter_types
+    return json.dumps(data_dict)
 
 
 def datetime_to_str(date):

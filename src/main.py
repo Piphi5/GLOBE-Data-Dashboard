@@ -48,8 +48,7 @@ if "filters" not in st.session_state:
 
 if "selected_filters" not in st.session_state:
     st.session_state["selected_filters"] = list()
-if "selected_filter_types" not in st.session_state:
-    st.session_state["selected_filter_types"] = list()
+
 
 if "protocol" not in st.session_state:
     st.session_state["protocol"] = ""
@@ -188,7 +187,6 @@ with filtering:
         if st.button("Add filter"):
             st.session_state["filters"][name] = filter_function
             st.session_state["selected_filters"].append(name)
-            st.session_state["selected_filter_types"].append(filter_type)
             st.experimental_rerun()
 
         st.session_state["filtered_data"] = apply_filters(
