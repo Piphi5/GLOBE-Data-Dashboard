@@ -56,6 +56,21 @@ value_test_values = [
         ["1", "0", "1", "0", "0", "1"],
         [False, True, False, True, True, False],
     ),
+    # Test GLOBE Teams
+    (
+        ["SEES2022", "SEES2021"],
+        False,
+        "mhm_GLOBETeams",
+        [
+            ["SEES2020", "ABC"],
+            ["SEES2021", "X"],
+            ["Y"],
+            ["SEES2020"],
+            ["SEES2020", "SEES2021"],
+            ["SEES2022"],
+        ],
+        [False, True, False, False, True, True],
+    ),
 ]
 
 numerical_test_string_values = [
