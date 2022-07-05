@@ -2,12 +2,14 @@ import datetime
 import os
 import sys
 
+import numpy as np
 import pandas as pd
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import (  # noqa: E402
+    apply_cleanup_filters,
     datetime_to_str,
     get_numeric_filter_args,
     get_value_filter_args,
@@ -104,6 +106,159 @@ datetime_test_string = [
     (datetime.datetime(2020, 11, 3), "2020-11-03"),
     (datetime.datetime(2021, 8, 12), "2021-08-12"),
 ]
+
+cleanup_filter_test_params = [
+    (
+        pd.DataFrame.from_dict(
+            {
+                "mhm_Latitude": [38.5, 14.5, 87.5, 31.41],
+                "mhm_Longitude": [-127.5, 45, 12.05, 160.78],
+                "mhm_MGRSLatitude": [38.6, 14.25, 87.5, 31.42],
+                "mhm_MGRSLongitude": [-127.35, 45.01, 12.05, 160.79],
+            }
+        ),
+        True,
+        False,
+        False,
+        [],
+        2,
+        [True, False, False, True],
+    ),
+    (
+        pd.DataFrame.from_dict(
+            {
+                "lc_Latitude": [38.5, 90.0, 87.5, -90.0],
+                "lc_Longitude": [-9999, 45, 120, 180],
+            }
+        ),
+        False,
+        True,
+        False,
+        [],
+        2,
+        [False, False, True, False],
+    ),
+    (
+        pd.DataFrame.from_dict(
+            {
+                "mhm_Latitude": [38.5, 14.5, 87.5, 31.41],
+                "mhm_Longitude": [-127.5, 45, 12.05, 160.78],
+                "mhm_MGRSLatitude": [38.6, 38.6, 38.6, 31.42],
+                "mhm_MGRSLongitude": [-127.35, -127.35, 12.51, 160.79],
+            }
+        ),
+        False,
+        False,
+        True,
+        ["mhm_MGRSLatitude", "mhm_MGRSLongitude"],
+        2,
+        [False, False, True, True],
+    ),
+    (
+        pd.DataFrame.from_dict(
+            {
+                "mhm_Latitude": [38.5, 14.5, 87.5, 31.41],
+                "mhm_Longitude": [-127.5, 45, 12.05, 160.78],
+            }
+        ),
+        False,
+        False,
+        True,
+        [],
+        2,
+        [True, True, True, True],
+    ),  # No filter columns
+    (
+        pd.DataFrame.from_dict(
+            {
+                "lc_Latitude": [38.5, 14.5, 87.5, 31.41],
+                "lc_Longitude": [-180.5, 45, 12.05, 160.78],
+                "lc_MGRSLatitude": [38.6, 14.25, 87.5, 31.41],
+                "lc_MGRSLongitude": [-127.35, 45.01, 12.51, 160.78],
+            }
+        ),
+        True,
+        True,
+        False,
+        [],
+        2,
+        [False, False, True, False],
+    ),
+    (
+        pd.DataFrame.from_dict(
+            {
+                "mhm_Latitude": [38.5, 14.5, 87.5, 31.41],
+                "mhm_Longitude": [-127.5, 45, 12.05, 160.78],
+                "mhm_MGRSLatitude": [38.6, 38.6, 87.5, 31.42],
+                "mhm_MGRSLongitude": [-127.35, -127.35, 12.51, 160.79],
+            }
+        ),
+        True,
+        False,
+        True,
+        ["mhm_MGRSLatitude", "mhm_MGRSLongitude"],
+        2,
+        [False, False, True, True],
+    ),  # Note: duplicates should be removed first before other filters remove the entries.
+    (
+        pd.DataFrame.from_dict(
+            {
+                "mhm_Latitude": [38.5, 38.5, 87.5, 31.41],
+                "mhm_Longitude": [-127.5, 45, 12.05, 180.0001],
+                "mhm_MGRSLatitude": [38.6, 14.25, 87.5, 31.42],
+                "mhm_MGRSLongitude": [-127.35, 45.01, 12.51, 160.79],
+            }
+        ),
+        False,
+        True,
+        True,
+        ["mhm_Latitude"],
+        2,
+        [False, False, True, False],
+    ),
+    (
+        pd.DataFrame.from_dict(
+            {
+                "lc_Latitude": [38.5, 38.5, 38.5, 31.41, 86.6, 25.7, 12],
+                "lc_Longitude": [-180.5, 45, 12.05, 160.78, 97.5, 30.5, 45.6],
+                "lc_MGRSLatitude": [38.6, 14.25, 87.5, 31.42, 86.6, 25.7, 12.01],
+                "lc_MGRSLongitude": [-127.35, 45.01, 12.51, 160.79, 97.25, 30.5, 45.67],
+            }
+        ),
+        True,
+        True,
+        True,
+        ["lc_Latitude"],
+        2,
+        [False, False, False, True, True, False, False],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "data, poor_geolocation_filter, valid_coords_filter, duplicate_filter, duplicate_cols, duplicate_size, desired",
+    cleanup_filter_test_params,
+)
+def test_cleanup_filters(
+    data,
+    poor_geolocation_filter,
+    valid_coords_filter,
+    duplicate_filter,
+    duplicate_cols,
+    duplicate_size,
+    desired,
+):
+    desired_df = data[np.array(desired)]
+    out_df = apply_cleanup_filters(
+        data,
+        poor_geolocation_filter,
+        valid_coords_filter,
+        duplicate_filter,
+        duplicate_cols,
+        duplicate_size,
+    )
+
+    assert desired_df.equals(out_df)
 
 
 def list_to_df(column, data):
