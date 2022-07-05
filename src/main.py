@@ -1,3 +1,4 @@
+import copy
 import datetime
 import json
 from functools import partial
@@ -12,8 +13,9 @@ import streamlit as st
 from go_utils import constants, lc, mhm
 from pandas.api.types import is_hashable, is_numeric_dtype
 
-from constants import protocols
+from constants import default_cleanup_dict, protocols
 from utils import (
+    apply_cleanup_filters,
     apply_filters,
     convert_df,
     download_data,
@@ -58,6 +60,14 @@ if "download_args" not in st.session_state:
 
 if "display_map" not in st.session_state:
     st.session_state["display_map"] = False
+if "cleanup_filters" not in st.session_state:
+    st.session_state["cleanup_filters"] = copy.deepcopy(default_cleanup_dict)
+if "cleaned_data" not in st.session_state:
+    st.session_state["cleaned_data"] = pd.DataFrame()
+if "selected_filter_defaults" not in st.session_state:
+    st.session_state["selected_filter_defaults"] = []
+if "cleanup_defaults" not in st.session_state:
+    st.session_state["cleanup_defaults"] = []
 
 
 def clear_filters():
@@ -130,27 +140,78 @@ with filtering:
 
     if st.session_state["file_loaded"]:
         st.session_state["data"] = download_data(st.session_state["download_args"])
+        st.session_state["cleanup_defaults"] = st.session_state["cleanup_filters"][
+            "duplicate_filter_cols"
+        ]
+        st.session_state["selected_filter_defaults"] = st.session_state[
+            "selected_filters"
+        ]
         st.session_state["file_loaded"] = False
 
     # Allows users to further filter API-returned data
     if st.session_state["data"] is not None:
+        st.header("Cleanup Filter Selection")
+        with st.expander("Options"):
+            st.markdown("## Documentation:")
+            st.markdown(
+                """
+            To better understand the purpose of these filters and their procedures you can visit the following links:  
+            - [Poor geolocational filter](https://iges-geospatial.github.io/globe-observer-utils-docs/go_utils/filtering.html#filter-poor-geolocational-data)  
+            - [Valid coordinates filter](https://iges-geospatial.github.io/globe-observer-utils-docs/go_utils/filtering.html#filter-invalid-coords)  
+            - [Duplicates filter](https://iges-geospatial.github.io/globe-observer-utils-docs/go_utils/filtering.html#filter-duplicates)
+            """
+            )
+            geolocation_filter = st.checkbox(
+                "Apply Poor Geolocational Data Filter",
+                value=st.session_state["cleanup_filters"]["poor_geolocation_filter"],
+            )
+            valid_coords = st.checkbox(
+                "Apply Valid Coordinates Data Filter (exclusive)",
+                value=st.session_state["cleanup_filters"]["valid_coords_filter"],
+            )
+            st.session_state["cleanup_filters"][
+                "poor_geolocation_filter"
+            ] = geolocation_filter
+            st.session_state["cleanup_filters"]["valid_coords_filter"] = valid_coords
+            duplicate_filter = st.checkbox(
+                "Apply Duplicate Filter",
+                value=st.session_state["cleanup_filters"]["duplicate_filter"],
+            )
+            if duplicate_filter:
+                group_criteria = st.multiselect(
+                    "Matching Columns",
+                    st.session_state["data"].columns,
+                    default=st.session_state["cleanup_defaults"],
+                )
+                min_size = st.number_input(
+                    "Group size (inclusive)",
+                    2,
+                    value=st.session_state["cleanup_filters"]["duplicate_filter_size"],
+                )
+                st.session_state["cleanup_filters"][
+                    "duplicate_filter_cols"
+                ] = group_criteria
+                st.session_state["cleanup_filters"]["duplicate_filter_size"] = min_size
+            st.session_state["cleanup_filters"]["duplicate_filter"] = duplicate_filter
+        st.session_state["cleaned_data"] = apply_cleanup_filters(
+            st.session_state["data"], **st.session_state["cleanup_filters"]
+        )
+
         st.header("Filter Selector")
         st.session_state["selected_filters"] = st.multiselect(
             "Selected Filters",
             st.session_state["filters"].keys(),
-            None
-            if not st.session_state["selected_filters"]
-            else st.session_state["selected_filters"],
+            st.session_state["selected_filter_defaults"],
         )
         st.write(st.session_state["selected_filters"])
 
         selected_col = st.selectbox(
-            "Select the column", st.session_state["data"].columns
+            "Select the column", st.session_state["cleaned_data"].columns
         )
 
         if (
-            is_numeric_dtype(st.session_state["data"][selected_col])
-            and len(pd.unique(st.session_state["data"][selected_col])) > 2
+            is_numeric_dtype(st.session_state["cleaned_data"][selected_col])
+            and len(pd.unique(st.session_state["cleaned_data"][selected_col])) > 2
         ):
             selected_op = st.selectbox("Operation", [">", "<", "==", ">=", "<=", "!="])
             value = st.number_input("Enter value")
@@ -161,14 +222,16 @@ with filtering:
             if np.all(
                 [
                     np.vectorize(is_hashable)(
-                        st.session_state["data"][selected_col].to_numpy()
+                        st.session_state["cleaned_data"][selected_col].to_numpy()
                     )
                 ]
             ):
-                selection_values = pd.unique(st.session_state["data"][selected_col])
+                selection_values = pd.unique(
+                    st.session_state["cleaned_data"][selected_col]
+                )
             else:
                 teams = []
-                for _, row in st.session_state["data"].iterrows():
+                for _, row in st.session_state["cleaned_data"].iterrows():
                     if not is_hashable(row[selected_col]):
                         for team in row[selected_col]:
                             teams.append(team)
@@ -190,7 +253,7 @@ with filtering:
             st.experimental_rerun()
 
         st.session_state["filtered_data"] = apply_filters(
-            st.session_state["data"],
+            st.session_state["cleaned_data"],
             st.session_state["filters"],
             st.session_state["selected_filters"],
         )
@@ -250,9 +313,9 @@ with st.sidebar:
             metadata,
             st.session_state["download_args"],
             st.session_state["selected_filters"],
+            st.session_state["cleanup_filters"],
             st.session_state["filters"],
         )
-
         st.session_state["file_loaded"] = True
         if "uploader_key" in st.session_state.keys():
             st.session_state.pop("uploader_key")

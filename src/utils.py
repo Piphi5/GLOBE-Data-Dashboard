@@ -7,11 +7,16 @@ from functools import partial
 import numpy as np
 import streamlit as st
 from go_utils import get_api_data
-from go_utils.filtering import filter_by_globe_team
+from go_utils.filtering import (
+    filter_by_globe_team,
+    filter_duplicates,
+    filter_invalid_coords,
+    filter_poor_geolocational_data,
+)
 from go_utils.geoenrich import get_country_api_data
 from pandas.api.types import is_hashable
 
-from constants import data_keys, date_fmt, protocols
+from constants import data_keys, date_fmt, default_cleanup_dict, protocols
 
 
 def numeric_filter(operation, value, column, df):
@@ -92,7 +97,37 @@ def apply_filters(data, filter_dict, selected_filters_list):
     return data[mask]
 
 
-def update_data_args(metadata, download_args, selected_filter_list, filter_func_dict):
+def apply_cleanup_filters(
+    data,
+    poor_geolocation_filter,
+    valid_coords_filter,
+    duplicate_filter,
+    duplicate_filter_cols=[],
+    duplicate_filter_size=0,
+):
+    # If geolocational filter: apply geolocational filter, repeat for others.
+    lat = [col for col in data.columns if "_Latitude" in col][0]
+    lon = [col for col in data.columns if "_Longitude" in col][0]
+
+    if duplicate_filter and len(duplicate_filter_cols) > 0:
+        data = filter_duplicates(data, duplicate_filter_cols, duplicate_filter_size)
+    if valid_coords_filter:
+        data = filter_invalid_coords(data, lat, lon)
+    if poor_geolocation_filter:
+        mgrs_lat = [col for col in data.columns if "_MGRSLatitude" in col][0]
+        mgrs_lon = [col for col in data.columns if "_MGRSLongitude" in col][0]
+        data = filter_poor_geolocational_data(data, lat, lon, mgrs_lat, mgrs_lon)
+
+    return data
+
+
+def update_data_args(
+    metadata, download_args, selected_filter_list, cleanup_filters, filter_func_dict
+):
+    download_args.clear()
+    selected_filter_list.clear()
+    cleanup_filters.clear()
+    filter_func_dict.clear()
     filter_types = {
         "numeric": (get_numeric_filter_args, numeric_filter),
         "value": (get_value_filter_args, value_filter),
@@ -109,13 +144,32 @@ def update_data_args(metadata, download_args, selected_filter_list, filter_func_
             if "date" in key
         }
     )
+
+    for key, value in default_cleanup_dict.items():
+        cleanup_filters[key] = value
+
     for filter_name, filter_type in zip(
         metadata["selected_filters"], metadata["selected_filter_types"]
     ):
-        name_parser, func = filter_types[filter_type]
-        filter_function = partial(func, *name_parser(filter_name))
-        filter_func_dict[filter_name] = filter_function
-        selected_filter_list.append(filter_name)
+
+        if filter_type == "cleanup":
+            if filter_name.startswith("duplicate_filter"):
+                # duplicate_filter with {columns}, groupsize:{size}
+                args = filter_name.split("with ")[1]
+                cols, size = args.split(", groupsize:")
+                cleanup_filters["duplicate_filter"] = True
+                # columns = ['col1', 'col2', ...]
+                cleanup_filters["duplicate_filter_cols"] = [
+                    col.strip().strip("'") for col in cols[1:-1].split(",")
+                ]
+                cleanup_filters["duplicate_filter_size"] = int(size)
+            else:
+                cleanup_filters[filter_name] = True
+        else:
+            name_parser, func = filter_types[filter_type]
+            filter_function = partial(func, *name_parser(filter_name))
+            filter_func_dict[filter_name] = filter_function
+            selected_filter_list.append(filter_name)
 
 
 def generate_json_object(download_data):
@@ -130,7 +184,21 @@ def generate_json_object(download_data):
         "value" if "in" in filter_name else "numeric"
         for filter_name in data_dict["selected_filters"]
     ]
-    data_dict["selected_filter_types"] = filter_types
+
+    cleanup_filters = [
+        cleanup_filter
+        for cleanup_filter, is_used in download_data["cleanup_filters"].items()
+        if is_used and "duplicate_filter_" not in cleanup_filter
+    ]
+    if "duplicate_filter" in cleanup_filters:
+        index = cleanup_filters.index("duplicate_filter")
+        cleanup_filters[
+            index
+        ] = f"duplicate_filter with {list(download_data['cleanup_filters']['duplicate_filter_cols'])}, groupsize:{download_data['cleanup_filters']['duplicate_filter_size']}"
+    data_dict["selected_filters"] = data_dict["selected_filters"] + cleanup_filters
+    data_dict["selected_filter_types"] = filter_types + len(cleanup_filters) * [
+        "cleanup"
+    ]
     return json.dumps(data_dict)
 
 

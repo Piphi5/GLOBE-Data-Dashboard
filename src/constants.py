@@ -15,3 +15,11 @@ data_keys = [
     "selected_filters",
     "selected_filter_types",
 ]
+
+default_cleanup_dict = {
+    "poor_geolocation_filter": False,
+    "valid_coords_filter": False,
+    "duplicate_filter": False,
+    "duplicate_filter_cols": [],
+    "duplicate_filter_size": 2,
+}
