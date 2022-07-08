@@ -201,7 +201,9 @@ with filtering:
         st.session_state["selected_filters"] = st.multiselect(
             "Selected Filters",
             st.session_state["filters"].keys(),
-            st.session_state["selected_filter_defaults"],
+            None
+            if not st.session_state["selected_filters"]
+            else st.session_state["selected_filters"],
         )
         st.write(st.session_state["selected_filters"])
 
