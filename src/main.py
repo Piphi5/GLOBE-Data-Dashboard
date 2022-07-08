@@ -95,27 +95,30 @@ with filtering:
     # Users select their desired data range
     st.subheader("Date Range")
     if st.session_state["file_loaded"]:
-        dates = st.date_input(
-            "range, no dates",
-            [
-                st.session_state["download_args"]["start_date"],
-                st.session_state["download_args"]["end_date"],
-            ],
+        start_date = st.date_input(
+            "Start Date",
+            st.session_state["download_args"]["start_date"],
+        )
+        end_date = st.date_input(
+            "End Date",
+            st.session_state["download_args"]["end_date"],
         )
     else:
-        dates = st.date_input(
-            "range, no dates",
-            [datetime.date(2017, 5, 31), datetime.datetime.today().date()],
+        start_date = st.date_input(
+            "Start Date",
+            datetime.date(2017, 5, 31),
+        )
+        end_date = st.date_input(
+            "End Date",
+            datetime.datetime.today().date(),
         )
 
     st.session_state["download_args"]["protocol"] = protocols[
         st.session_state["protocol"]
     ]
 
-    if len(dates) == 2:
-        start_date, end_date = dates
-        st.session_state["download_args"]["start_date"] = start_date
-        st.session_state["download_args"]["end_date"] = end_date
+    st.session_state["download_args"]["start_date"] = start_date
+    st.session_state["download_args"]["end_date"] = end_date
 
     if st.session_state["file_loaded"]:
         default_countries = st.session_state["download_args"]["countries"]
